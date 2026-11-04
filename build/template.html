@@ -64,7 +64,8 @@ textarea { width: 100%; min-height: 70px; font: 11px ui-monospace, Menlo, monosp
 .extras { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .extras .item { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 8px; background: var(--chip); border-radius: var(--r); }
 .extras .item span { flex: 1; }
-.extras .x { border: 0; background: none; color: var(--muted); font-size: 16px; width: 24px; }
+.extras .rm { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 2px 10px; font-size: 12.5px; }
+.extras .rm:hover { border-color: var(--muted); }
 #map .xbox { cursor: pointer; }
 #map .xtxt { pointer-events: none; text-anchor: middle; dominant-baseline: central; font-family: var(--font-num); font-weight: 700; }
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 13px; }
@@ -102,7 +103,7 @@ textarea { width: 100%; min-height: 70px; font: 11px ui-monospace, Menlo, monosp
 
     <section>
       <h2>Citywide boxes</h2>
-      <p class="note" style="margin:0 0 8px">For districts with no map area, like District 75. Each gets a box on the map that you select and color like a district, and it's listed in the legend.</p>
+      <p class="note" style="margin:0 0 8px">For districts with no map area, like District 75. Each gets a box on the map that you select and color like a district, and it's listed in the legend. To take a box off, click Remove, or select it and press Delete.</p>
       <div class="row"><button class="btn" data-extra="75|Citywide">Add D75</button><button class="btn" data-extra="79|Citywide">Add D79</button></div>
       <div class="row" style="margin-top:6px">
         <input id="exName" class="wide" type="text" placeholder="Name, e.g. 75" style="flex:1;min-width:0" maxlength="12">
@@ -212,11 +213,19 @@ const DATA = /*__DATA__*/null;
     const el = $("extras"); el.innerHTML = "";
     for (const e of S.extras) {
       const row = document.createElement("div"); row.className = "item";
-      row.innerHTML = `<span></span><button class="x" title="Remove this box">×</button>`;
+      row.innerHTML = `<span></span><button class="rm">Remove</button>`;
       row.querySelector("span").textContent = "District " + nm(e.id);
-      row.querySelector(".x").onclick = () => { S.extras = S.extras.filter((x) => x !== e); delete S.color[e.id]; S.sel.delete(e.id); buildExtras(); render(); };
+      row.querySelector(".rm").onclick = () => removeExtras([e.id]);
       el.appendChild(row);
     }
+    // quick buttons toggle: "Add D75" becomes "Remove D75" once the box is on the map
+    document.querySelectorAll("[data-extra]").forEach((b) => { const id = b.dataset.extra.split("|")[0]; b.textContent = (S.extras.some((x) => x.id === id) ? "Remove D" : "Add D") + id; });
+  }
+  function removeExtras(ids) {
+    ids = ids.filter(isExtra); if (!ids.length) return;
+    S.extras = S.extras.filter((x) => !ids.includes(x.id));
+    for (const id of ids) { delete S.color[id]; S.sel.delete(id); }
+    buildExtras(); render(); toast(`Removed ${ids.map((i) => "D" + i).join(", ")}.`);
   }
   function addExtra(id, note) {
     id = (id || "").trim().replace(/^d(?=\d)/i, ""); note = (note || "").trim();
@@ -225,7 +234,7 @@ const DATA = /*__DATA__*/null;
     if (S.extras.length >= 6) { toast("Up to 6 boxes."); return; }
     S.extras.push({ id, note }); buildExtras(); S.sel = new Set([id]); render();
   }
-  document.querySelectorAll("[data-extra]").forEach((b) => b.onclick = () => { const [i, n] = b.dataset.extra.split("|"); addExtra(i, n); });
+  document.querySelectorAll("[data-extra]").forEach((b) => b.onclick = () => { const [i, n] = b.dataset.extra.split("|"); if (isExtra(i)) removeExtras([i]); else addExtra(i, n); });
   $("exAdd").onclick = () => { addExtra($("exName").value, $("exNote").value); $("exName").value = ""; $("exNote").value = ""; };
   const full = { x: bx - pad, y: by - pad, w: bw + 2 * pad, h: bh + 2 * pad };
   let view = { ...full };
@@ -268,7 +277,11 @@ const DATA = /*__DATA__*/null;
   $("zIn").onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 0.7); };
   $("zOut").onclick = () => { const r = svg.getBoundingClientRect(); zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.4); };
   $("zFit").onclick = fit;
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { S.sel.clear(); render(); } });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { S.sel.clear(); render(); }
+    // Delete/Backspace removes selected citywide boxes (not while typing in a field)
+    if ((e.key === "Delete" || e.key === "Backspace") && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { const ids = [...S.sel].filter(isExtra); if (ids.length) { e.preventDefault(); removeExtras(ids); } }
+  });
 
   // ---------- color helpers ----------
   const lum = (hex) => { const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
