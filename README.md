@@ -4,7 +4,7 @@ A single-page map of the 32 NYC community school districts. Select whole distric
 citywide boxes (D75, D79, or your own), adjust number, line and background styling, and download a PNG or SVG with a
 title and legend. Colors are saved in the viewer's browser and can be copied/pasted as settings.
 
-A personal project; not affiliated with NYC Public Schools.
+A personal project; not affiliated with NYC Public Schools. 
 
 ## Files
 
